@@ -585,7 +585,7 @@ Be concise, action-oriented, and founder-friendly. Use bullet points and structu
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
           system: sys,
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
+          messages: next.slice(next.findIndex(m => m.role === "user")).map((m) => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await res.json();

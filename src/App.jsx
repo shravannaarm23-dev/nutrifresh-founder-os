@@ -119,7 +119,6 @@ export default function App() {
     { id: "tasks",     label: "Tasks",       icon: "✅" },
     { id: "metrics",   label: "Metrics",     icon: "📊" },
     { id: "notes",     label: "Notes",       icon: "🗒️" },
-    { id: "ai",        label: "AI Co-pilot", icon: "🤖" },
     { id: "decisions", label: "Decisions",   icon: "🧭" },
   ];
 
@@ -174,7 +173,6 @@ export default function App() {
         {tab === "tasks"     && <Tasks     tasks={tasks} addTask={addTask} toggleTask={toggleTask} delTask={delTask} />}
         {tab === "metrics"   && <Metrics   metrics={metrics} addMetric={addMetric} updateMetricValue={updateMetricValue} delMetric={delMetric} />}
         {tab === "notes"     && <Notes     notes={notes} addNote={addNote} updateNote={updateNote} delNote={delNote} togglePin={togglePin} />}
-        {tab === "ai"        && <AI        todayEvents={todayEvents} pending={pending} decisions={decisions} />}
         {tab === "decisions" && <Decisions decisions={decisions} addDecision={addDecision} delDecision={delDecision} />}
       </main>
     </div>
@@ -536,132 +534,6 @@ function Tasks({ tasks, addTask, toggleTask, delTask }) {
           <Btn full onClick={submit}>Add Task</Btn>
         </Modal>
       )}
-    </div>
-  );
-}
-
-// ─── AI CO-PILOT ───────────────────────────────────────────────────────────
-const QUICK = [
-  { label: "📋 Meeting prep",    prompt: "Help me prepare for my next meeting. What questions should I ask and what should I ensure is covered?" },
-  { label: "📧 Draft email",     prompt: "Help me draft a crisp professional email to an investor or partner with a progress update from Nutrifresh." },
-  { label: "⚖️ Decision framework", prompt: "I need to make an important decision. Walk me through a structured framework to think it through." },
-  { label: "📊 Weekly review",   prompt: "Help me structure a weekly founder review: what metrics and areas should I cover for Nutrifresh?" },
-  { label: "🎯 Set OKRs",        prompt: "Help me draft OKRs for next quarter for a fresh food/nutrition startup like Nutrifresh." },
-  { label: "💡 Validate idea",   prompt: "I have a new product or business idea for Nutrifresh. Help me run a structured validation." },
-];
-
-function AI({ todayEvents, pending, decisions }) {
-  const [msgs,  setMsgs ] = useState([
-    { role: "assistant", content: "Hi! I'm your Nutrifresh AI Co-pilot 🌿\n\nI'm aware of your today's schedule, pending tasks, and past decisions. Ask me anything — meeting prep, drafts, decision frameworks, OKRs, or just thinking through a problem." },
-  ]);
-  const [input, setInput ] = useState("");
-  const [busy,  setBusy  ] = useState(false);
-  const bottom             = useRef(null);
-
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-
-  const send = async (text) => {
-    const q = text || input;
-    if (!q.trim() || busy) return;
-    const next = [...msgs, { role: "user", content: q }];
-    setMsgs(next);
-    setInput("");
-    setBusy(true);
-
-    try {
-      const sys = `You are the AI Co-pilot for Nutrifresh, a fresh food and nutrition startup. You assist the founder with business strategy, operations, communication, and day-to-day decision-making.
-
-Current context (today):
-- Meetings: ${todayEvents.map((e) => e.title).join(", ") || "None"}
-- High priority tasks: ${pending.filter((t) => t.priority === "high").slice(0, 5).map((t) => t.title).join(", ") || "None"}
-- Recent decisions: ${decisions.slice(0, 3).map((d) => d.title).join(", ") || "None"}
-
-Be concise, action-oriented, and founder-friendly. Use bullet points and structure when helpful. Lead with the most useful information.`;
-
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          system: sys,
-          messages: next.slice(next.findIndex(m => m.role === "user")).map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      const data = await res.json();
-      const reply = data.content?.map((c) => c.text || "").join("") || "Sorry, could not get a response.";
-      setMsgs((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch {
-      setMsgs((prev) => [...prev, { role: "assistant", content: "Connection error. Please try again." }]);
-    }
-    setBusy(false);
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      <div style={{ padding: "28px 32px 16px", borderBottom: "1px solid #e2e8f0" }}>
-        <h1 style={s.h1}>🤖 AI Co-pilot</h1>
-        <p style={s.sub}>Powered by Claude · Context-aware for Nutrifresh</p>
-      </div>
-
-      <div style={{ padding: "10px 32px", display: "flex", gap: 6, flexWrap: "wrap", borderBottom: "1px solid #f1f5f9" }}>
-        {QUICK.map((q, i) => (
-          <button key={i} onClick={() => send(q.prompt)} style={s.quickBtn}>{q.label}</button>
-        ))}
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 32px" }}>
-        {msgs.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 14 }}>
-            {m.role === "assistant" && (
-              <div style={s.avatar}>🤖</div>
-            )}
-            <div style={{
-              maxWidth: "68%",
-              padding: "12px 16px",
-              borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-              background: m.role === "user" ? "#16a34a" : "#fff",
-              color: m.role === "user" ? "#fff" : "#0f172a",
-              border: m.role === "assistant" ? "1px solid #e2e8f0" : "none",
-              fontSize: 13.5,
-              lineHeight: 1.65,
-              whiteSpace: "pre-wrap",
-            }}>
-              {m.content}
-            </div>
-          </div>
-        ))}
-        {busy && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={s.avatar}>🤖</div>
-            <div style={{ background: "#fff", border: "1px solid #e2e8f0", padding: "12px 16px", borderRadius: "16px 16px 16px 4px", fontSize: 13, color: "#94a3b8" }}>
-              Thinking…
-            </div>
-          </div>
-        )}
-        <div ref={bottom} />
-      </div>
-
-      <div style={{ padding: "14px 32px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 10 }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Ask anything — meetings, drafts, decisions, strategy…"
-          style={{ ...s.input, flex: 1 }}
-        />
-        <button
-          onClick={() => send()}
-          disabled={busy || !input.trim()}
-          style={{
-            width: 42, height: 42, borderRadius: "50%", border: "none",
-            background: busy || !input.trim() ? "#e2e8f0" : "#16a34a",
-            color: "#fff", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >
-          ➤
-        </button>
-      </div>
     </div>
   );
 }
